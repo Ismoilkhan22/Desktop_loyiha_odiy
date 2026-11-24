@@ -3,11 +3,11 @@
 ## 0. Loyiha nima qiladi
 `docs/AIFU_02_Desktop_natija.docx` talabiga ko'ra: bosh sahifa (4 hisoblagich + 2 diagramma), talabalar
 ro'yxati (qidiruv, guruh filtri, tahrirlash, tasdiqlab o'chirish), 6 ta akademik modul, baholar
-(0–100), hisobot + Excelga eksport. Hammasi **PyQt5** (oyna) va **PostgreSQL** (baza).
+(0–100), hisobot + Excelga eksport. Hammasi **PyQt5** (oyna) va **MySQL** (baza).
 
 ## 1. Arxitektura (3 qatlam, oddiy)
 ```
- [ Oyna (PyQt5) ]  ->  [ db.py: query / execute ]  ->  [ PostgreSQL: 8 jadval ]
+ [ Oyna (PyQt5) ]  ->  [ db.py: query / execute ]  ->  [ MySQL: 8 jadval ]
   app/main.py            SQL yuboradi                    sql/schema.sql
   app/pages/*
 ```
@@ -34,7 +34,8 @@ farqi `modules.py` da qisqa ta'rif sifatida turadi. Yangi jadval = bitta `Module
 | 10 | Bosh sahifa | `app/pages/dashboard.py` | `COUNT(*)` va diagrammalar |
 | 11 | Hisobot + Excel | `app/pages/report.py` | Filtrlangan natijani `.xlsx` ga yozish |
 | 12 | Asosiy oyna | `app/main.py` | Chap menyu + sahifalar to'plami |
-| 13 | Tekshiruv | `tests/smoke_test.py` | CRUD, qidiruv, cheklovlar, Excel avtomatik tekshiriladi |
+| 13 | Dizayn (QSS: yon panel, kartalar, jadval, tugmalar) | `app/style.py` | Ko'rinish mantiqdan alohida, bitta faylda |
+| 14 | Tekshiruv | `tests/smoke_test.py` | CRUD, qidiruv, cheklovlar, Excel avtomatik tekshiriladi |
 
 ## 3. Kod qayerda yozilgan (talabdan koddagi joygacha)
 
@@ -43,7 +44,7 @@ farqi `modules.py` da qisqa ta'rif sifatida turadi. Yangi jadval = bitta `Module
 | 4 ta hisoblagich `COUNT(*)` | `dashboard.py`, `refresh()` ichida |
 | Diagrammalar bazadan yangilanadi | `dashboard.py` `refresh()` + `widgets.py` `BarChart` |
 | Chap menyu, 8 jadvalga kirish | `main.py`, `MainWindow.__init__` |
-| Ism/familiya bo'yicha qidiruv | `crud.py`, `refresh()` (`ILIKE`), `modules.py` `STUDENTS.search` |
+| Ism/familiya bo'yicha qidiruv | `crud.py`, `refresh()` (`LIKE`), `modules.py` `STUDENTS.search` |
 | Guruh filtri | `crud.py`, `refresh()`, `modules.py` `STUDENTS.filter_col` |
 | Tahrirlash tanlangan ID bo'yicha | `crud.py`, `on_edit()` va `update()` |
 | O'chirishdan oldin tasdiq | `crud.py`, `on_delete()` (`QMessageBox.question`) |
@@ -52,7 +53,7 @@ farqi `modules.py` da qisqa ta'rif sifatida turadi. Yangi jadval = bitta `Module
 | 6 akademik modul | `modules.py` |
 | Ball 0–100, 100 dan kattasi rad | `modules.py` `GRADES` (`hi=100`) + `schema.sql` `CHECK` |
 | Excelga eksport | `report.py`, `save_xlsx()` |
-| Bog'liq yozuvni o'chirishda xabar | `crud.py`, `_save()` (`ForeignKeyViolation`) |
+| Bog'liq yozuvni o'chirishda xabar | `crud.py`, `_save()` (MySQL xato kodi 1451) |
 
 ## 4. Bitta amal oxirigacha qanday o'tadi (darsda ko'rsatish uchun)
 "Yangi talaba qo'shish" tugmasi:
@@ -64,10 +65,12 @@ farqi `modules.py` da qisqa ta'rif sifatida turadi. Yangi jadval = bitta `Module
 
 SQL ga qiymatlar doim `%s` bilan beriladi (matn ichiga qo'shib yozilmaydi), shuning uchun SQL injection yo'q.
 
-## 5. PostgreSQL haqida (MySQL o'rniga)
-- Topshiriqda MySQL, lekin sizda PostgreSQL bor, shuning uchun u ishlatildi. Dars uchun farqi kichik:
-  `AUTO_INCREMENT` o'rniga `SERIAL`, `mysql-connector` o'rniga `psycopg2`.
-- O'rnatish muammosi yo'q: Python ham, PostgreSQL ham mavjud. Python versiyasi 3.10–3.13 bo'lsa ishlaydi.
+## 5. MySQL haqida
+- Topshiriqdagi baza: **MySQL**. `brew install mysql` va `brew services start mysql` bilan o'rnatiladi.
+- Python bilan ulash: rasmiy `mysql-connector-python` (kompilyatsiya kerak emas).
+- Muhim farqlar (darsda aytish mumkin): `groups` MySQL da zahiralangan so'z, shuning uchun jadval `student_groups`;
+  matnlarni qo'shish `CONCAT(a, ' ', b)` bilan (`||` MySQL da "YOKI" degani); `LIKE` katta-kichik harfni farqlamaydi.
+- Cheklovlarni baza o'zi ushlaydi: `CHECK` (ball 0–100) xato kodi 3819, bog'liq yozuvni o'chirish xato kodi 1451.
 - Parol kerak bo'lsa `DB_PASSWORD` o'zgaruvchisi (README da).
 
 ## 6. Tekshirilgani va tekshirilmagani

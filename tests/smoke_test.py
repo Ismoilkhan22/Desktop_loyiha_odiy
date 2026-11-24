@@ -5,7 +5,7 @@ import tempfile
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")  # oyna ochmasdan
 
-import psycopg2
+import mysql.connector
 from openpyxl import load_workbook
 from PyQt5.QtWidgets import QApplication
 
@@ -30,7 +30,7 @@ n = count("students")
 page.insert(["Test", "Talaba", 1])
 assert count("students") == n + 1
 new_id = db.query("SELECT MAX(id) FROM students")[0][0]
-page.update(new_id, ["Test2", "Talaba", 2])
+page.update_row(new_id, ["Test2", "Talaba", 2])
 assert db.query("SELECT first_name, group_id FROM students WHERE id=%s", (new_id,))[0] == ("Test2", 2)
 
 # Qidiruv
@@ -45,15 +45,15 @@ assert count("students") == n
 try:
     CrudPage(modules.GRADES).insert([1, 1, 150, "2026-11-01"])
     raise SystemExit("100 dan katta ball qabul qilindi!")
-except psycopg2.errors.CheckViolation:
-    pass
+except mysql.connector.Error as e:
+    assert e.errno == 3819, e  # CHECK cheklovi buzildi
 
 # Bog'liq yozuv o'chirilmaydi (guruhda talabalar bor)
 try:
     CrudPage(modules.GROUPS).delete(1)
     raise SystemExit("Bog'liq guruh o'chib ketdi!")
-except psycopg2.errors.ForeignKeyViolation:
-    pass
+except mysql.connector.Error as e:
+    assert e.errno == 1451, e  # bog'liq yozuv
 
 # Excel eksport
 rep = ReportPage()

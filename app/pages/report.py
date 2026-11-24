@@ -4,13 +4,14 @@ from PyQt5.QtWidgets import (QComboBox, QFileDialog, QHBoxLayout, QMessageBox, Q
                              QTableWidgetItem, QVBoxLayout, QWidget)
 
 from .. import db
+from .crud import style_table
 
 HEADERS = ["Talaba", "Guruh", "Fan", "Ball", "Sana"]
 SQL = """
-SELECT st.last_name || ' ' || st.first_name, g.name, sub.name, gr.score, gr.graded_at
+SELECT CONCAT(st.last_name, ' ', st.first_name), g.name, sub.name, gr.score, gr.graded_at
 FROM grades gr
 JOIN students st ON st.id = gr.student_id
-JOIN groups g    ON g.id  = st.group_id
+JOIN student_groups g    ON g.id  = st.group_id
 JOIN subjects sub ON sub.id = gr.subject_id
 WHERE (%s IS NULL OR g.id = %s) AND (%s IS NULL OR sub.id = %s)
 ORDER BY gr.graded_at DESC, 1
@@ -21,23 +22,28 @@ class ReportPage(QWidget):
     def __init__(self):
         super().__init__()
         lay = QVBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(12)
         bar = QHBoxLayout()
         lay.addLayout(bar)
         self.group = QComboBox()
         self.subject = QComboBox()
         self.group.currentIndexChanged.connect(self.load)
         self.subject.currentIndexChanged.connect(self.load)
+        self.group.setMinimumWidth(180)
+        self.subject.setMinimumWidth(220)
         bar.addWidget(self.group)
         bar.addWidget(self.subject)
         bar.addStretch()
         export = QPushButton("Excelga eksport")
+        export.setProperty("kind", "primary")
         export.clicked.connect(self.export)
         bar.addWidget(export)
 
         self.table = QTableWidget(0, len(HEADERS))
         self.table.setHorizontalHeaderLabels(HEADERS)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.table.horizontalHeader().setStretchLastSection(True)
+        style_table(self.table)
         lay.addWidget(self.table)
         self.rows = []
 
@@ -52,7 +58,7 @@ class ReportPage(QWidget):
         combo.blockSignals(False)
 
     def refresh(self):
-        self._fill_combo(self.group, "Barcha guruhlar", "SELECT id, name FROM groups ORDER BY name")
+        self._fill_combo(self.group, "Barcha guruhlar", "SELECT id, name FROM student_groups ORDER BY name")
         self._fill_combo(self.subject, "Barcha fanlar", "SELECT id, name FROM subjects ORDER BY name")
         self.load()
 

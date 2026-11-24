@@ -6,30 +6,36 @@ from .. import db
 from ..widgets import BarChart
 
 COUNTERS = [("Talabalar", "students"), ("O'qituvchilar", "teachers"),
-            ("Fakultetlar", "faculties"), ("Guruhlar", "groups")]
+            ("Fakultetlar", "faculties"), ("Guruhlar", "student_groups")]
 
 
 class Dashboard(QWidget):
     def __init__(self):
         super().__init__()
         lay = QVBoxLayout(self)
+        lay.setSpacing(16)
+        lay.setContentsMargins(0, 0, 0, 0)
         cards = QHBoxLayout()
+        cards.setSpacing(16)
         lay.addLayout(cards)
         self.numbers = {}
         for title, table in COUNTERS:
             card = QFrame()
-            card.setFrameShape(QFrame.StyledPanel)
-            card.setMaximumHeight(110)
+            card.setObjectName("card")
+            card.setMaximumHeight(120)
             v = QVBoxLayout(card)
             num = QLabel("0")
             num.setAlignment(Qt.AlignCenter)
-            num.setStyleSheet("font-size: 32px; font-weight: bold;")
+            num.setObjectName("cardnum")
             v.addWidget(num)
-            v.addWidget(QLabel(title), alignment=Qt.AlignCenter)
+            name = QLabel(title)
+            name.setObjectName("cardlabel")
+            v.addWidget(name, alignment=Qt.AlignCenter)
             cards.addWidget(card)
             self.numbers[table] = num
 
         charts = QHBoxLayout()
+        charts.setSpacing(16)
         lay.addLayout(charts)
         self.by_group = BarChart("Guruhlardagi talabalar soni")
         self.by_subject = BarChart("Fanlar bo'yicha o'rtacha ball")
@@ -40,7 +46,7 @@ class Dashboard(QWidget):
         for _, table in COUNTERS:  # table nomi yuqoridagi doimiy ro'yxatdan, foydalanuvchidan emas
             self.numbers[table].setText(str(db.query(f"SELECT COUNT(*) FROM {table}")[0][0]))
         self.by_group.set_data(db.query(
-            "SELECT g.name, COUNT(s.id) FROM groups g LEFT JOIN students s ON s.group_id = g.id "
+            "SELECT g.name, COUNT(s.id) FROM student_groups g LEFT JOIN students s ON s.group_id = g.id "
             "GROUP BY g.id ORDER BY g.name"))
         self.by_subject.set_data(db.query(
             "SELECT sub.name, ROUND(AVG(gr.score), 1) FROM subjects sub JOIN grades gr ON gr.subject_id = sub.id "

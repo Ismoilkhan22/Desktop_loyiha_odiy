@@ -1,24 +1,27 @@
 """2-qadam: bazaga ulanish. Butun dastur faqat query() va execute() orqali SQL yuboradi."""
-import psycopg2
+import mysql.connector
 
-from .config import DB
+from .config import DB, DB_NAME
 
 _conn = None
 
 
 def _connection():
     global _conn
-    if _conn is None or _conn.closed:
-        _conn = psycopg2.connect(**DB)
+    if _conn is None or not _conn.is_connected():
+        _conn = mysql.connector.connect(**DB, database=DB_NAME)
     return _conn
 
 
 def _run(sql, params, fetch):
     c = _connection()
     try:
-        with c.cursor() as cur:
+        cur = c.cursor()
+        try:
             cur.execute(sql, params)
             rows = cur.fetchall() if fetch else None
+        finally:
+            cur.close()
         c.commit()  # INSERT/UPDATE/DELETE shu yerda saqlanadi
         return rows
     except Exception:

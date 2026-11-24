@@ -2,9 +2,9 @@
 farqi faqat modules.py dagi ta'rifda."""
 from dataclasses import dataclass
 
-import psycopg2
+import mysql.connector
 from PyQt5.QtCore import QDate, Qt
-from PyQt5.QtWidgets import (QComboBox, QDateEdit, QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout,
+from PyQt5.QtWidgets import (QComboBox, QHeaderView, QDateEdit, QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout,
                              QLineEdit, QMessageBox, QPushButton, QSpinBox, QTableWidget,
                              QTableWidgetItem, QVBoxLayout, QWidget)
 
@@ -33,12 +33,26 @@ class Module:
     filter_sql: str = ""
 
 
+def style_table(table):
+    """Barcha jadvallar bir xil ko'rinishda: chiziqsiz, ketma-ket rangli qatorlar."""
+    table.setAlternatingRowColors(True)
+    table.setShowGrid(False)
+    table.verticalHeader().setVisible(False)
+    table.verticalHeader().setDefaultSectionSize(38)
+    header = table.horizontalHeader()
+    header.setSectionResizeMode(QHeaderView.ResizeToContents)  # ustun kengligi matnga qarab
+    header.setMinimumSectionSize(90)
+    header.setDefaultAlignment(Qt.AlignLeft | Qt.AlignVCenter)  # sarlavha ham qiymat bilan bir chiziqda
+    header.setStretchLastSection(True)  # oxirgi ustun qolgan joyni egallaydi
+
+
 class FormDialog(QDialog):
     """Qo'shish / tahrirlash oynasi. Maydon turiga qarab vidjet tanlanadi."""
 
     def __init__(self, module, values=None, parent=None):
         super().__init__(parent)
         self.setWindowTitle(module.title)
+        self.setMinimumWidth(380)
         self.fields = module.fields
         form = QFormLayout(self)
         self.widgets = []
@@ -49,6 +63,8 @@ class FormDialog(QDialog):
             self.widgets.append(w)
             form.addRow(f.label, w)
         buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
+        buttons.button(QDialogButtonBox.Save).setText("Saqlash")
+        buttons.button(QDialogButtonBox.Cancel).setText("Bekor qilish")
         buttons.accepted.connect(self._accept)
         buttons.rejected.connect(self.reject)
         form.addRow(buttons)
@@ -106,6 +122,8 @@ class CrudPage(QWidget):
         super().__init__()
         self.m = module
         lay = QVBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(12)
         bar = QHBoxLayout()
         lay.addLayout(bar)
 
@@ -113,14 +131,18 @@ class CrudPage(QWidget):
         self.filter = QComboBox()
         if module.search:
             self.search.setPlaceholderText("Ism yoki familiya bo'yicha qidirish...")
+            self.search.setMinimumWidth(280)
             self.search.textChanged.connect(self.refresh)
             bar.addWidget(self.search)
         if module.filter_col:
+            self.filter.setMinimumWidth(180)
             self.filter.currentIndexChanged.connect(self.refresh)
             bar.addWidget(self.filter)
         bar.addStretch()
-        for text, slot in (("Qo'shish", self.on_add), ("Tahrirlash", self.on_edit), ("O'chirish", self.on_delete)):
+        for text, kind, slot in (("+ Qo'shish", "primary", self.on_add), ("Tahrirlash", "", self.on_edit),
+                                 ("O'chirish", "danger", self.on_delete)):
             b = QPushButton(text)
+            b.setProperty("kind", kind)  # style.py shu bo'yicha rang beradi
             b.clicked.connect(slot)
             bar.addWidget(b)
 
@@ -128,7 +150,7 @@ class CrudPage(QWidget):
         self.table.setHorizontalHeaderLabels(module.headers)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.table.horizontalHeader().setStretchLastSection(True)
+        style_table(self.table)
         lay.addWidget(self.table)
 
     # ---------- bazaga yozish (oynasiz, test qilish oson) ----------
@@ -137,7 +159,7 @@ class CrudPage(QWidget):
         marks = ", ".join(["%s"] * len(cols))
         db.execute(f"INSERT INTO {self.m.table} ({', '.join(cols)}) VALUES ({marks})", values)
 
-    def update(self, id_, values):
+    def update_row(self, id_, values):
         sets = ", ".join(f"{f.column} = %s" for f in self.m.fields)
         db.execute(f"UPDATE {self.m.table} SET {sets} WHERE id = %s", [*values, id_])
 
@@ -157,7 +179,7 @@ class CrudPage(QWidget):
         where, params = [], []
         text = self.search.text().strip()
         if m.search and text:
-            where.append("(" + " OR ".join(f"{c} ILIKE %s" for c in m.search) + ")")
+            where.append("(" + " OR ".join(f"{c} LIKE %s" for c in m.search) + ")")
             params += [f"%{text}%"] * len(m.search)
         if m.filter_col and self.filter.currentData() is not None:
             where.append(f"{m.filter_col} = %s")
@@ -181,10 +203,11 @@ class CrudPage(QWidget):
     def _save(self, action, *args):
         try:
             action(*args)
-        except psycopg2.errors.ForeignKeyViolation:
-            QMessageBox.warning(self, "Xato", "Bu yozuv boshqa jadvalda ishlatilgan, o'chirib bo'lmaydi")
-        except psycopg2.Error as e:
-            QMessageBox.critical(self, "Baza xatosi", str(e))
+        except mysql.connector.Error as e:
+            if e.errno == 1451:  # boshqa jadval shu yozuvga bog'langan
+                QMessageBox.warning(self, "Xato", "Bu yozuv boshqa jadvalda ishlatilgan, o'chirib bo'lmaydi")
+            else:
+                QMessageBox.critical(self, "Baza xatosi", str(e))
         else:
             self.refresh()
 
@@ -201,12 +224,15 @@ class CrudPage(QWidget):
         current = db.query(f"SELECT {cols} FROM {self.m.table} WHERE id = %s", (id_,))[0]
         dlg = FormDialog(self.m, current, self)
         if dlg.exec_() == QDialog.Accepted:
-            self._save(self.update, id_, dlg.values())
+            self._save(self.update_row, id_, dlg.values())
 
     def on_delete(self):
         id_ = self._selected_id()
         if id_ is None:
             return
-        ok = QMessageBox.question(self, "Tasdiqlash", "Rostdan o'chirasizmi?")
-        if ok == QMessageBox.Yes:
+        box = QMessageBox(QMessageBox.Question, "Tasdiqlash", "Rostdan o'chirasizmi?", parent=self)
+        yes = box.addButton("Ha, o'chirish", QMessageBox.YesRole)
+        box.addButton("Bekor qilish", QMessageBox.NoRole)
+        box.exec_()
+        if box.clickedButton() is yes:
             self._save(self.delete, id_)

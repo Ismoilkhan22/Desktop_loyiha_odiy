@@ -1,13 +1,17 @@
-# Talabalar boshqaruvi (PyQt5 + PostgreSQL)
+# Talabalar boshqaruvi (PyQt5 + MySQL)
 
 Desktop dastur: talabalar, o'qituvchilar, fakultetlar, guruhlar, fanlar va baholarni boshqarish,
 bosh sahifada hisoblagich va diagrammalar, hisobotni Excelga eksport qilish.
 
-> Topshiriqda MySQL ko'rsatilgan, bu loyihada **PostgreSQL** ishlatilgan. Qolgan hamma narsa topshiriqdagidek.
-
 ## Talablar
 - Python 3.10+ (3.13 da tekshirilgan)
-- PostgreSQL 14+ (16 da tekshirilgan), ishlab turgan bo'lishi kerak
+- MySQL 8.0.16+ (26.10 da tekshirilgan, CHECK cheklovlari uchun kerak), ishlab turgan bo'lishi kerak
+
+## MySQL o'rnatish (macOS, bir marta)
+```bash
+brew install mysql
+brew services start mysql      # root foydalanuvchi, parolsiz (faqat o'z kompyuteringizda)
+```
 
 ## O'rnatish va ishga tushirish (macOS / Linux)
 ```bash
@@ -20,11 +24,10 @@ python -m app.main         # dasturni ochish
 ```
 Windows: `.venv\Scripts\activate` (qolgani bir xil).
 
-## PostgreSQL sozlamalari
-Default: `localhost:5432`, baza `talaba_db`, foydalanuvchi = kompyuter login nomi, parolsiz
-(Homebrew PostgreSQL shunday). Boshqacha bo'lsa, muhit o'zgaruvchisi bilan o'zgartiring:
+## MySQL sozlamalari
+Default: `localhost:3306`, baza `talaba_db`, foydalanuvchi `root`, parolsiz. Boshqacha bo'lsa:
 ```bash
-export DB_USER=postgres DB_PASSWORD=sirparol DB_HOST=localhost DB_PORT=5432 DB_NAME=talaba_db
+export DB_USER=root DB_PASSWORD=sirparol DB_HOST=localhost DB_PORT=3306 DB_NAME=talaba_db
 ```
 
 ## Tekshirish
@@ -37,6 +40,7 @@ DB_NAME=talaba_test python -m tests.smoke_test      # "Hammasi OK" chiqishi kera
 ```
 sql/schema.sql, sql/seed.sql   jadvallar va namuna ma'lumot
 app/config.py                  baza sozlamasi
+app/style.py                   dizayn (QSS)
 app/db.py                      query() va execute()
 app/init_db.py                 bazani yaratish
 app/widgets.py                 diagramma
